@@ -6,8 +6,8 @@ $.ajax(
         url: "https://localhost:5001/api/chat/session", //TODO: get base URL from config file
         type: "GET",
         success: function (result) {
-            sessionId = result;                         //TODO: use JSON response
-            addTextToChatWindow(result);
+            sessionId = result.sessionId;                         //TODO: use JSON response
+            addTextToChatWindow("Created session: " + JSON.stringify(result));
             window.setTimeout(doPolling, 1000);
         },
         error: function (error) {
@@ -20,17 +20,18 @@ function addTextToChatWindow(text) {
     document.getElementById("chat-window").value += text + "\r\n";
 }
 
+// The simplest continuous polling
 function doPolling() {
     $.ajax(
         {
             url: "https://localhost:5001/api/chat/poll?sessionId=" + sessionId, //TODO: get base URL from config file
             type: "GET",
             success: function (result) {
-                addTextToChatWindow(result);
+                addTextToChatWindow("Session pooling: " + JSON.stringify(result));
                 window.setTimeout(doPolling, 1000);
             },
             error: function (error) {
-                console.log(result);
+                console.log(error);
             }
         }
     );  

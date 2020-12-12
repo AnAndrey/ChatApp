@@ -30,9 +30,16 @@ namespace ChatApp.Controllers
         {
             if (!sessionId.HasValue)
             {
-                return BadRequest($"The {nameof(sessionId)} is invalid."); //TODO: Use error model
+                return BadRequest($"The '{nameof(sessionId)}' is invalid."); //TODO: Use error model
             }
-            return Ok($"{DateTime.UtcNow}: {sessionId} is ok");
+            var session = SessionManager.CheckSession(sessionId.Value);
+            if (session == null)
+                return NotFound($"{DateTime.UtcNow}: '{sessionId}' not found.");
+
+            return Ok(session);
+
         }
+
+        
     }
 }
