@@ -1,6 +1,7 @@
 ﻿using ChatApp.Enums;
 using ChatApp.Models;
 using System;
+using System.Linq;
 
 namespace ChatApp.Units
 {
@@ -58,7 +59,22 @@ namespace ChatApp.Units
                     }
                 }
             }
-            return;
+        }
+
+        internal void FinishAllProccessing()
+        {
+            lock (_syncObj)
+            {
+                for (int i = 0; i < Capacity; i++)
+                {
+                    if (_sessions[i] == null)
+                        continue;
+
+                    _sessions[i].AgentInfo = string.Empty;
+                    _sessions[i] = null;
+                }
+                ProcessingSessionsCount = 0;
+            }
         }
     }
 }

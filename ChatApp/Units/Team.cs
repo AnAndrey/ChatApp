@@ -17,7 +17,7 @@ namespace ChatApp.Units
 
         public Team(Agent[] juniors, Agent[] middles, Agent[] seniors, Agent[] teamleads)
         {
-            // according to requirements
+            // according to the requirements
             // assign the junior first, then mid, then senior etc
             _arrayOfAgents = new []{ juniors, middles, seniors, teamleads};
             //_juniors = juniors;
@@ -61,6 +61,18 @@ namespace ChatApp.Units
             }
         }
 
+        public void FreeAgents()
+        {
+            lock (_syncObj)
+            {
+                _mapSessionAgent.Clear();
+                foreach (var agents in _arrayOfAgents.Where(agents => agents != null))
+                    foreach (var agent in agents) 
+                    {
+                        agent.FinishAllProccessing();
+                    }
+            }
+        }
         private bool AssignSessionToAgent(UserSession newSession, IEnumerable<Agent> agents) 
         {
             if (agents == null || !agents.Any())

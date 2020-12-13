@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using ChatApp.Enums;
 using ChatApp.Models;
 using ChatApp.Services.Interfaces;
@@ -28,33 +29,87 @@ namespace ChatApp.Services
         {
             _sessionQueue = sessionQueue;
             _shiftManager = shiftManager;
+            _shiftManager.OnTransition = OnTransition;
             _sessionQueue.OnExpiredSession = OnExpiredSession;
             _teamManager = teamManager;
             _logger = logger;
             _timeProvider = timeProvider;
         }
+
+        private void OnTransition() 
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                // - unassign all sessions
+                // - get all sessions from the queue
+                // - assing session to the new team and keep the sessions order the same
+                _teamManager.UnAssignAllSession();
+                var sessions =_sessionQueue.DequeueAll();
+                foreach (var session in sessions)
+                {
+                    session.Status = SessionStatus.None;
+                    session.AgentInfo = null;
+                    StoreSession(session);
+                }
+            }
+            finally 
+            {
+                _lock.ExitWriteLock();
+            }
+        }
         private void OnExpiredSession(UserSession session) 
         {
-            _teamManager.UnAssignSession(session);
-            var awaitingSession = _sessionQueue.GetNextWaitingSession();
-            if (awaitingSession != null && _teamManager.TryAssignSessionToAgent(awaitingSession)) 
+            _lock.EnterReadLock();
+            try
             {
-                awaitingSession.Status = SessionStatus.Working;
+                _teamManager.UnAssignSession(session);
+                var awaitingSession = _sessionQueue.GetNextWaitingSession();
+                if (awaitingSession != null && _teamManager.TryAssignSessionToAgent(awaitingSession))
+                {
+                    awaitingSession.Status = SessionStatus.Working;
+                }
+            }
+            finally
+            {
+                _lock.ExitReadLock();
             }
         }
         public UserSession CheckSession(Guid sessionId)
         {
-            if (_sessionQueue.TryGetSession(sessionId, out var session))
+            _lock.EnterReadLock();
+            try
             {
-                session.LastUpdated = _timeProvider.CurrentTime;
-                return session;
+                if (_sessionQueue.TryGetSession(sessionId, out var session))
+                {
+                    session.LastUpdated = _timeProvider.CurrentTime;
+                    return session;
+                }
+                return null;
             }
-            return null;
+            finally
+            {
+                _lock.ExitReadLock();
+            }
         }
 
+        private ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
         public UserSession CreateSession()
         {
-            var newSession = new UserSession() { LastUpdated = _timeProvider.CurrentTime};
+            _lock.EnterReadLock();
+            try
+            {
+                var newSession = new UserSession() { LastUpdated = _timeProvider.CurrentTime };
+                return StoreSession(newSession);
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+
+        }
+        private UserSession StoreSession(UserSession newSession) 
+        {
             if (_teamManager.TryAssignSessionToAgent(newSession))
             {
                 _logger.LogInformation($"Assigned new session '{newSession.SessionId}' to agent.");
@@ -86,7 +141,6 @@ namespace ChatApp.Services
             newSession.Status = SessionStatus.Refused;
             return newSession;
         }
-
         private UserSession QueueSession(UserSession session, SessionStatus status) 
         {
             session.Status = status;

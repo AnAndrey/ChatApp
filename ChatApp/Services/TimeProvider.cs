@@ -11,7 +11,7 @@ namespace ChatApp.Services
     }
     public class TimeProvider: ITimeProvider
     {
-        private readonly TimeSpan _timeShift = TimeSpan.Zero;
+        private readonly TimeSpan _timeShift = TimeSpan.Zero; //usefull for Debug and testing
 
         public DateTime CurrentTime => DateTime.Now + _timeShift;
     }

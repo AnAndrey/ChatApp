@@ -12,6 +12,7 @@ namespace ChatApp.Services.Interfaces
         bool TryAssignSessionToOverflowAgent(UserSession awaitingSession);
 
         void UnAssignSession(UserSession session);
+        void UnAssignAllSession();
     }
     public class TeamManager: ITeamManager
     {
@@ -45,11 +46,6 @@ namespace ChatApp.Services.Interfaces
                 return false;
 
             var res = team.TryAssignSessionToAgent(newSession); 
-            //if (!res && _shiftManager.IsOverflowTeamAvailable())
-            //{
-            //    team = _shiftManager.GetOverflowTeam();
-            //    res = team.TryAssignSessionToAgent(newSession);
-            //}
             return res;
         }
 
@@ -76,6 +72,14 @@ namespace ChatApp.Services.Interfaces
             {
                 team = _shiftManager.GetOverflowTeam();
                 team.TryUnAssignSession(session);
+            }
+        }
+
+        public void UnAssignAllSession()
+        {
+            foreach (var team in _shiftManager.Teams)
+            {
+                team.FreeAgents();
             }
         }
     }

@@ -17,6 +17,7 @@ namespace ChatApp.Services
         bool TryGetSession(Guid sessionId, out UserSession session);
         UserSession GetNextWaitingSession();
         public void Add(UserSession newSession);
+        IEnumerable<UserSession> DequeueAll();
     }
     public class SessionQueue: ISessionQueue
     {
@@ -30,6 +31,7 @@ namespace ChatApp.Services
         private static readonly TimeSpan _oldSessionTreshold = TimeSpan.FromSeconds(3);
         private readonly ILogger<SessionQueue> _logger;
         private readonly ITimeProvider _timeProvider;
+        public Action<UserSession> OnExpiredSession { get; set; }
 
         public SessionQueue(ILogger<SessionQueue> logger, ITimeProvider timeProvider) 
         {
@@ -59,8 +61,6 @@ namespace ChatApp.Services
                 }
             }
         }
-
-        public Action<UserSession> OnExpiredSession { get; set; }
         public bool TryGetSession(Guid sessionId, out UserSession session) 
         {
             session = null;
@@ -131,6 +131,21 @@ namespace ChatApp.Services
             if (_monitorTimer != null)
                 _monitorTimer.Dispose();
             _monitorTimer = null;
+        }
+
+        public IEnumerable<UserSession> DequeueAll()
+        {
+            lock (_syncObj)
+            {
+                var queue = new Queue<UserSession>();
+                _mappedSessions.Clear();
+                foreach (var session in _userSessions) 
+                {
+                    queue.Enqueue(session);
+                }
+                _userSessions.Clear();
+                return queue;
+            }
         }
     }
 }

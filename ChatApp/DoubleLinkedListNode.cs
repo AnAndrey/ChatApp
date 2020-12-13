@@ -67,6 +67,11 @@ namespace ChatApp
             return GetEnumerator();
         }
 
+        public void Clear()
+        {
+            Head = null;
+            Tail = null;
+        }
     }
 
     public class DoubleLinkedListNode<TModel>

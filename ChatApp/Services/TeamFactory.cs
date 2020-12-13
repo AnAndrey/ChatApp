@@ -58,7 +58,7 @@ namespace ChatApp.Services
                     break;
                 case TeamType.Evening:
                     juniors = new[] { CreateJuniorAgent(), CreateJuniorAgent() };
-                    middles = new[] { CreateMiddleAgent(),  };
+                    middles = new[] { CreateMiddleAgent() };
                     seniors = new[] { CreateSeniorAgent() };
                     break;
                 case TeamType.Nightly:
