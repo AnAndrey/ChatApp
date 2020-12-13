@@ -1,10 +1,6 @@
 ﻿using ChatApp.Enums;
 using ChatApp.Errors;
-using ChatApp.Services.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using ChatApp.Units;
 
 namespace ChatApp.Services
 {
@@ -26,17 +22,26 @@ namespace ChatApp.Services
     //  Team Lead: 0.5
     public class TeamFactory:ITeamFactory
     {
-        private const double JuniorMultiplier = 0.4;
-        private const double MiddleMultiplier = 0.6;
-        private const double SeniorMultiplier = 0.8;
-        private const double TeamLeadMultiplier = 0.5;
         private const int MaximumConcurrencyLevel = 10;
-        private const int OwerflowAgentsCount = 6;
 
-        private Agent CreateJuniorAgent() => new Agent(AgentType.Junior, (int)(JuniorMultiplier * MaximumConcurrencyLevel));
+        //private const double JuniorMultiplier = 0.4;
+        //private const double MiddleMultiplier = 0.6;
+        //private const double SeniorMultiplier = 0.8;
+        //private const double TeamLeadMultiplier = 0.5;
+        //private const int OwerflowAgentsCount = 6;
+
+        //Debug constants
+        private const double JuniorMultiplier = 0.2;
+        private const double MiddleMultiplier = 0.2;
+        private const double SeniorMultiplier = 0.2;
+        private const double TeamLeadMultiplier = 0.2;
+
+        private const int OwerflowAgentsCount = 1;
+
+        private Agent CreateJuniorAgent(string info = null) => new Agent(AgentType.Junior, (int)(JuniorMultiplier * MaximumConcurrencyLevel), info);
         private Agent CreateMiddleAgent() => new Agent(AgentType.Middle, (int)(MiddleMultiplier * MaximumConcurrencyLevel));
         private Agent CreateSeniorAgent() => new Agent(AgentType.Seniour, (int)(SeniorMultiplier * MaximumConcurrencyLevel));
-        private Agent CreateTeamLeadAgent() => new Agent(AgentType.TeamLEad, (int)(TeamLeadMultiplier * MaximumConcurrencyLevel));
+        private Agent CreateTeamLeadAgent() => new Agent(AgentType.TeamLead, (int)(TeamLeadMultiplier * MaximumConcurrencyLevel));
 
         public Team CreateTeam(TeamType teamType)
         { 
@@ -61,8 +66,9 @@ namespace ChatApp.Services
                     break;
                 case TeamType.Overflow:
                     juniors = new Agent[OwerflowAgentsCount];
+                    var agentInfo = AgentType.Junior.ToString() + TeamType.Overflow.ToString();
                     for (int i = 0; i < OwerflowAgentsCount; i++)
-                        juniors[i] = CreateJuniorAgent();
+                        juniors[i] = CreateJuniorAgent(agentInfo);
                     break;
                 default:
                     throw new ChatException($"Invalid {nameof(TeamType)}: '{teamType}'.");

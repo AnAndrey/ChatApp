@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using ChatApp.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
+using ChatApp.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChatApp.Controllers
@@ -12,11 +8,14 @@ namespace ChatApp.Controllers
     [ApiController]
     public class ChatController : ControllerBase
     {
+        private readonly ITimeProvider _timeProvider;
+
         private ISessionManager SessionManager { get; }
 
-        public ChatController(ISessionManager sessionManager)
+        public ChatController(ISessionManager sessionManager, ITimeProvider timeProvider)
         {
             SessionManager = sessionManager;
+            _timeProvider = timeProvider;
         }
         [HttpGet("session")]
         public IActionResult CreateSession() 
@@ -34,7 +33,7 @@ namespace ChatApp.Controllers
             }
             var session = SessionManager.CheckSession(sessionId.Value);
             if (session == null)
-                return NotFound($"{DateTime.UtcNow}: '{sessionId}' not found.");
+                return NotFound($"{_timeProvider.CurrentTime}: '{sessionId}' not found. Probably, session is expired.");
 
             return Ok(session);
 

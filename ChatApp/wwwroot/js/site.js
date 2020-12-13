@@ -19,6 +19,7 @@ $.ajax(
 
 function addTextToChatWindow(text) {
     document.getElementById("chat-window").value += text + "\r\n";
+    $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
 }
 
 // The simplest continuous polling

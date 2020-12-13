@@ -6,6 +6,6 @@
         Junior,
         Middle,
         Seniour,
-        TeamLEad
+        TeamLead
     }
 }

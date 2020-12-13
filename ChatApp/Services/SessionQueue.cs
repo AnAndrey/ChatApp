@@ -11,6 +11,8 @@ namespace ChatApp.Services
     public interface ISessionQueue: IDisposable
     {
         int TotalSessionsCount { get; }
+        int WaitingSessionsCount { get; }
+
         Action<UserSession> OnExpiredSession { get; set; }
         bool TryGetSession(Guid sessionId, out UserSession session);
         UserSession GetNextWaitingSession();
@@ -27,11 +29,13 @@ namespace ChatApp.Services
         private static readonly TimeSpan _monitoringInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan _oldSessionTreshold = TimeSpan.FromSeconds(3);
         private readonly ILogger<SessionQueue> _logger;
+        private readonly ITimeProvider _timeProvider;
 
-        public SessionQueue(ILogger<SessionQueue> logger) 
+        public SessionQueue(ILogger<SessionQueue> logger, ITimeProvider timeProvider) 
         {
             _monitorTimer = new Timer(ExpiredSessionMonitor);
             _logger = logger;
+            _timeProvider = timeProvider;
         }
         public int TotalSessionsCount 
         { 
@@ -39,6 +43,19 @@ namespace ChatApp.Services
             {
                 lock (_syncObj) {
                     return _mappedSessions.Count;
+                }
+            }
+        }
+
+        public int WaitingSessionsCount
+        {
+            get
+            {
+                lock (_syncObj)
+                {
+                    return _mappedSessions.Values
+                        .Where(x => x.Value.Status == SessionStatus.Waiting)
+                        .Count();
                 }
             }
         }
@@ -64,11 +81,11 @@ namespace ChatApp.Services
             {
                 lock (_syncObj)
                 {
-                    var oldSessions = _userSessions.Where(x => (DateTime.UtcNow - x.LastUpdated) > _oldSessionTreshold)
+                    var oldSessions = _userSessions.Where(x => (_timeProvider.CurrentTime - x.LastUpdated) > _oldSessionTreshold)
                         .ToArray();
                     foreach (var session in oldSessions)
                     {
-                        _logger.LogInformation($"The session '{session}' is expired. Current time: {DateTime.UtcNow}.");
+                        _logger.LogInformation($"The session '{session}' is expired. Current time: {_timeProvider.CurrentTime}.");
                         session.Status = SessionStatus.Refused;
                         if (_mappedSessions.TryGetValue(session.SessionId, out var node))
                         {
@@ -90,6 +107,7 @@ namespace ChatApp.Services
         {
             lock (_syncObj) 
             {
+                //According to FIFO get first Waiting session
                 return _userSessions.FirstOrDefault(x => x.Status == SessionStatus.Waiting);
             }
         }

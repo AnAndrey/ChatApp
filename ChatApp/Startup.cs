@@ -25,9 +25,12 @@ namespace ChatApp
             services.AddSingleton<ISessionQueue, SessionQueue>();
             services.AddSingleton<ITeamFactory, TeamFactory>();
             services.AddSingleton<IShiftManager, ShiftManager>();
+            services.AddSingleton<ITeamManager, TeamManager>();
+            services.AddSingleton<ITimeProvider, TimeProvider>();
+
         }
 
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {

@@ -1,5 +1,6 @@
 ﻿using ChatApp.Enums;
-using ChatApp.Services.Interfaces;
+using ChatApp.Services;
+using ChatApp.Units;
 using System;
 using System.Collections.Generic;
 
@@ -15,13 +16,15 @@ namespace ChatApp.Services
     public class ShiftManager: IShiftManager
     {
         Dictionary<TeamType, Team> _teams = new Dictionary<TeamType, Team>();
+        private readonly ITimeProvider _timeProvider;
 
-        public ShiftManager(ITeamFactory teamFactory) 
+        public ShiftManager(ITeamFactory teamFactory, ITimeProvider timeProvider) 
         {
             _teams[TeamType.Daily] = teamFactory.CreateTeam(TeamType.Daily);
             _teams[TeamType.Evening] = teamFactory.CreateTeam(TeamType.Evening);
             _teams[TeamType.Nightly] = teamFactory.CreateTeam(TeamType.Nightly);
             _teams[TeamType.Overflow] = teamFactory.CreateTeam(TeamType.Overflow);
+            _timeProvider = timeProvider;
         }
 
         public bool IsOverflowTeamAvailable()
@@ -41,7 +44,7 @@ namespace ChatApp.Services
         {
             get 
             {
-                return DateTime.UtcNow.Hour switch
+                return _timeProvider.CurrentTime.Hour switch
                 {
                     int hour when hour > 8 && hour <= 16 => TeamType.Daily,
                     int hour when hour > 16 && hour <= 0 => TeamType.Evening,
