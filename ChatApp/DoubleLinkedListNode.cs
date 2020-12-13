@@ -29,22 +29,21 @@ namespace ChatApp
 
         public void Remove(DoubleLinkedListNode<T> node) 
         {
-            var previous = node.Previous;
             if (Head == node)
             {
                 if (node.Next != null)
                 {
                     node.Next.Previous = null;
                     Head = node.Next;
-                    return;
                 }
                 else 
                 {
                     Head = null;
                     Tail = null;
                 }
-
+                return;
             }
+            var previous = node.Previous;
             previous.Next = node.Next;
         }
 

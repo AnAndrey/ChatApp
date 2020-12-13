@@ -15,7 +15,7 @@ namespace ChatApp.Services.Interfaces
 
     public class SessionManager : ISessionManager
     {
-        TeamManager _teamManager = new TeamManager();
+        TeamManager _teamManager = null;
         private readonly ISessionQueue _sessionQueue;
         private readonly IShiftManager _shiftManager;
 
@@ -24,6 +24,7 @@ namespace ChatApp.Services.Interfaces
             _sessionQueue = sessionQueue;
             _shiftManager = shiftManager;
             _sessionQueue.OnExpiredSession = OnExpiredSession;
+            _teamManager = new TeamManager(shiftManager);
             //Get awaiting session and assign agent
         }
         private void OnExpiredSession(UserSession session) 
@@ -58,6 +59,7 @@ namespace ChatApp.Services.Interfaces
             var waitingSessions = _sessionQueue.TotalSessionsCount; // ??? WaitingSessionsCount or Available slots or TotalItems?
             if (waitingSessions >= _teamManager.TotalCapacity)
             {
+#warning !!!!
                 if (_shiftManager.IsOverflowTeamAvailable())
                 {
                     var awaitingSession = _sessionQueue.GetNextWaitingSession(); //reduce queue
@@ -87,13 +89,27 @@ namespace ChatApp.Services.Interfaces
     public class TeamManager
     {
         private Dictionary<Guid, Agent> dd = new Dictionary<Guid, Agent>();
+        private readonly IShiftManager _shiftManager;
 
         public int TotalCapacity { get; internal set; } = 5;
 
+        public TeamManager(IShiftManager shiftManager) 
+        {
+            _shiftManager = shiftManager;
+        }
         internal bool TryAssignSessionToAgent(UserSession newSession)
         {
-            dd.Add(newSession.SessionId, new Agent(AgentType.Junior, 1));
-            return dd.Count < 2 ? true : false;
+            var team = _shiftManager.GetCurrentTeam();
+            if (team == null) 
+                return false;
+
+            var res = team.TryAssignSessionToAgent(newSession); 
+            if (!res && _shiftManager.IsOverflowTeamAvailable())
+            {
+                team = _shiftManager.GetOverflowTeam();
+                res = team.TryAssignSessionToAgent(newSession);
+            }
+            return res;
         }
 
         internal bool TryAssignSessionToOverflowAgent(UserSession awaitingSession)
@@ -103,39 +119,111 @@ namespace ChatApp.Services.Interfaces
 
         internal void UnAssignSession(UserSession session)
         {
-            //throw new NotImplementedException();
+            var team = _shiftManager.GetCurrentTeam();
+            if (team == null) 
+                return;
+
+            var res = team.TryUnAssignSession(session);
+            if (!res) 
+            {
+                //TODO: check Overflow
+            }
         }
     }
     public class Team 
     {
-        private Agent[] _juniors;
-        private Agent[] _middles;
-        private Agent[] _seniors;
-        private Agent[] _teamleads;
+        private readonly Agent[][] _arrayOfAgents;
+        private readonly Dictionary<Guid, Agent> _mapSessionAgent = new Dictionary<Guid, Agent>();
+        private readonly Object _syncObj = new object();
+        //private Agent[] _juniors;
+        //private Agent[] _middles;
+        //private Agent[] _seniors;
+        //private Agent[] _teamleads;
 
         public Team(Agent[] juniors, Agent[] middles, Agent[] seniors, Agent[] teamleads)
         {
-            _juniors = juniors;
-            _middles = middles;
-            _seniors = seniors;
-            _teamleads = teamleads;
+            // according to requirements
+            // assign the junior first, then mid, then senior etc
+            _arrayOfAgents = new []{ juniors, middles, seniors, teamleads};
+            //_juniors = juniors;
+            //_middles = middles;
+            //_seniors = seniors;
+            //_teamleads = teamleads;
         }
 
-    }
+        public bool TryAssignSessionToAgent(UserSession newSession) 
+        {
+            lock (_syncObj)
+            {
+                for (int i = 0; i < _arrayOfAgents.Count(); i++)
+                {
+                    if (_arrayOfAgents[i] == null)
+                        continue;
 
-    public enum AgentType 
-    {
-        None,
-        Junior,
-        Middle,
-        Seniour,
-        TeamLEad
+                    if (AssignSessionToAgent(newSession, _arrayOfAgents[i]))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        public bool TryUnAssignSession(UserSession newSession)
+        {
+            lock (_syncObj)
+            {
+                if (_mapSessionAgent.TryGetValue(newSession.SessionId, out var agent))
+                {
+                    agent.FinishProccessing(newSession);
+                    _mapSessionAgent.Remove(newSession.SessionId);
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        private bool AssignSessionToAgent(UserSession newSession, IEnumerable<Agent> agents) 
+        {
+            if (agents == null || !agents.Any())
+                return false;
+            var agent = GetTheLeastBusyAgent(agents);// Real load balancer here instead of the pure round robin
+            if (agent != null)
+            {
+                if (agent.Proccess(newSession))
+                {
+                    _mapSessionAgent[newSession.SessionId] = agent;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private Agent GetTheLeastBusyAgent(IEnumerable<Agent> agents)
+        {
+            var minSessionsCount = int.MaxValue;
+            Agent theLeastBusyAgent = agents.FirstOrDefault();
+            foreach (var agent in agents) 
+            {
+                if (agent.ProcessingSessionsCount < minSessionsCount)
+                {
+                    minSessionsCount = agent.ProcessingSessionsCount;
+                    theLeastBusyAgent = agent;
+                }
+            }
+            //TODO: implement Agent.IsFull property for the better code readability
+            if (theLeastBusyAgent ==null || minSessionsCount >= theLeastBusyAgent.Capacity)//if the Least Busy Agent is full
+                return null;
+
+            return theLeastBusyAgent;
+        }
     }
     public class Agent
     {
         public AgentType AgentType { get;}
         public double Capacity { get; }
         private UserSession[] _sessions;
+        private Object _syncObj = new object();
         public Agent(AgentType type, int capacity) 
         {
             AgentType = type;
@@ -143,27 +231,42 @@ namespace ChatApp.Services.Interfaces
             _sessions = new UserSession[capacity];
         }
 
-        public bool TryProccess(UserSession session) 
+        public int ProcessingSessionsCount { get; private set; }
+
+        public bool Proccess(UserSession session) 
         {
-            for (int i = 0; i < Capacity; i++) 
+            lock (_syncObj)
             {
-                if (_sessions[i] == null)
+                for (int i = 0; i < Capacity; i++)
                 {
-                    _sessions[i] = session;
-                    return true;
+                    if (_sessions[i] == null)
+                    {
+                        _sessions[i] = session;
+                        session.AgentInfo = AgentType.ToString();
+                        ProcessingSessionsCount++;
+                        return true;
+                    }
                 }
             }
             return false;
         }
 
-        public void FinishProccess(UserSession session)
+        public void FinishProccessing(UserSession session)
         {
-            for (int i = 0; i < Capacity; i++)
+            lock (_syncObj)
             {
-                if (_sessions[i].SessionId == session.SessionId)
+                for (int i = 0; i < Capacity; i++)
                 {
-                    _sessions[i] = null;
-                    break;
+                    if (_sessions[i] == null)
+                        continue;
+
+                    if (_sessions[i].SessionId == session.SessionId)
+                    {
+                        _sessions[i].AgentInfo = string.Empty;
+                        _sessions[i] = null;
+                        ProcessingSessionsCount--;
+                        break;
+                    }
                 }
             }
             return;

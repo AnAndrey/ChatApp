@@ -9,6 +9,8 @@ namespace ChatApp.Services
     {
         bool IsOverflowTeamAvailable();
         Team GetCurrentTeam();
+        Team GetOverflowTeam();
+
     }
     public class ShiftManager: IShiftManager
     {
@@ -31,7 +33,10 @@ namespace ChatApp.Services
         {
             return _teams[CurrentTeamType];
         }
-
+        public Team GetOverflowTeam()
+        {
+            return _teams[TeamType.Overflow];
+        }
         private TeamType CurrentTeamType 
         {
             get 

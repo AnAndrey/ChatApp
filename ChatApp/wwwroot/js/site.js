@@ -8,7 +8,8 @@ $.ajax(
         success: function (result) {
             sessionId = result.sessionId;                         //TODO: use JSON response
             addTextToChatWindow("Created session: " + JSON.stringify(result));
-            window.setTimeout(doPolling, 1000);
+            if (result.statusAsString == "Working" || result.statusAsString == "Waiting")
+                window.setTimeout(doPolling, 1000);
         },
         error: function (error) {
             console.log(result);
@@ -28,10 +29,15 @@ function doPolling() {
             type: "GET",
             success: function (result) {
                 addTextToChatWindow("Session pooling: " + JSON.stringify(result));
-                window.setTimeout(doPolling, 1000);
+                if (result.statusAsString == "Working" || result.statusAsString == "Waiting") {
+                    window.setTimeout(doPolling, 1000);
+                    return;
+                }
+                addTextToChatWindow("Stop pooling." );
             },
             error: function (error) {
-                console.log(error);
+                addTextToChatWindow(JSON.stringify(error));
+                addTextToChatWindow("Stop pooling.");
             }
         }
     );  

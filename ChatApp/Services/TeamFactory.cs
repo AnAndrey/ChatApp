@@ -33,10 +33,10 @@ namespace ChatApp.Services
         private const int MaximumConcurrencyLevel = 10;
         private const int OwerflowAgentsCount = 6;
 
-        private Agent CreateJuniorAgent() => new Agent(AgentType.Junior, (int)JuniorMultiplier * MaximumConcurrencyLevel);
-        private Agent CreateMiddleAgent() => new Agent(AgentType.Middle, (int)MiddleMultiplier * MaximumConcurrencyLevel);
-        private Agent CreateSeniorAgent() => new Agent(AgentType.Seniour, (int)SeniorMultiplier * MaximumConcurrencyLevel);
-        private Agent CreateTeamLeadAgent() => new Agent(AgentType.TeamLEad, (int)TeamLeadMultiplier * MaximumConcurrencyLevel);
+        private Agent CreateJuniorAgent() => new Agent(AgentType.Junior, (int)(JuniorMultiplier * MaximumConcurrencyLevel));
+        private Agent CreateMiddleAgent() => new Agent(AgentType.Middle, (int)(MiddleMultiplier * MaximumConcurrencyLevel));
+        private Agent CreateSeniorAgent() => new Agent(AgentType.Seniour, (int)(SeniorMultiplier * MaximumConcurrencyLevel));
+        private Agent CreateTeamLeadAgent() => new Agent(AgentType.TeamLEad, (int)(TeamLeadMultiplier * MaximumConcurrencyLevel));
 
         public Team CreateTeam(TeamType teamType)
         { 

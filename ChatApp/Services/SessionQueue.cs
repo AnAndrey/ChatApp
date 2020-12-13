@@ -46,11 +46,15 @@ namespace ChatApp.Services
         public Action<UserSession> OnExpiredSession { get; set; }
         public bool TryGetSession(Guid sessionId, out UserSession session) 
         {
+            session = null;
             lock (_syncObj)
             {
-                var res = _mappedSessions.TryGetValue(sessionId, out var node);
-                session = node.Value;
-                return res;
+                if (_mappedSessions.TryGetValue(sessionId, out var node))
+                {
+                    session = node.Value;
+                    return true;
+                }
+                return false;
             }
         }
         private void ExpiredSessionMonitor(object _)
@@ -60,9 +64,11 @@ namespace ChatApp.Services
             {
                 lock (_syncObj)
                 {
-                    var oldSessions = _userSessions.Where(x => (DateTime.UtcNow - x.LastUpdated) > _oldSessionTreshold);
+                    var oldSessions = _userSessions.Where(x => (DateTime.UtcNow - x.LastUpdated) > _oldSessionTreshold)
+                        .ToArray();
                     foreach (var session in oldSessions)
                     {
+                        _logger.LogInformation($"The session '{session}' is expired. Current time: {DateTime.UtcNow}.");
                         session.Status = SessionStatus.Refused;
                         if (_mappedSessions.TryGetValue(session.SessionId, out var node))
                         {
@@ -93,7 +99,10 @@ namespace ChatApp.Services
             lock (_syncObj) 
             {
                 if (!_monitorStarted)
+                {
                     _monitorTimer.Change(_monitoringInterval, _monitoringInterval);
+                    _monitorStarted = true;
+                }
                 var node = _userSessions.AddLast(newSession);
                 _mappedSessions.Add(node.Value.SessionId, node);
             }
